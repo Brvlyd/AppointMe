@@ -52,6 +52,7 @@ export async function listForUser({
 
 export function create(data: {
   title: string;
+  description?: string;
   creatorId: string;
   start: Date;
   end: Date;
@@ -60,6 +61,7 @@ export function create(data: {
   return db.appointment.create({
     data: {
       title: data.title,
+      description: data.description,
       creatorId: data.creatorId,
       start: data.start,
       end: data.end,

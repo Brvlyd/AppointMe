@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DateTime } from "luxon";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
@@ -28,6 +29,7 @@ export function CreateAppointmentForm({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
@@ -79,22 +81,34 @@ export function CreateAppointmentForm({
 
   function participantsInZone(zone: string): string[] {
     const names: string[] = [];
-    if (currentUser.preferredTimezone === zone) names.push("You");
+    if (currentUser.preferredTimezone === zone) names.push("you");
     for (const u of selectedParticipants) {
       if (u.preferredTimezone === zone) names.push(u.name);
     }
     return names;
   }
 
-  /** "Start (22 Oct 2026) and end (31 Oct 2026) fall on different days for X (zone)." */
+  /**
+   * Joins names with proper "and" grammar instead of a flat comma list, so
+   * two different people sharing a zone read as "you and Dewi" (clearly two
+   * people) rather than "You, Dewi Anggraini" (which can look like one
+   * merged label).
+   */
+  function joinNames(names: string[]): string {
+    if (names.length <= 1) return names.join("");
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  }
+
+  /** "In Asia/Jakarta, start (22 Oct 2026) and end (31 Oct 2026) are on different days for you and Dewi Anggraini." */
   function crossesMidnightMessage(zone: string): string {
-    const names = participantsInZone(zone).join(", ");
+    const names = joinNames(participantsInZone(zone));
     if (!utcStart || !utcEnd) {
-      return `Start and end fall on different days for ${names} (${zone}).`;
+      return `In ${zone}, start and end fall on different days - this affects ${names}.`;
     }
     const startDate = DateTime.fromJSDate(utcStart, { zone: "utc" }).setZone(zone).toFormat("d MMM yyyy");
     const endDate = DateTime.fromJSDate(utcEnd, { zone: "utc" }).setZone(zone).toFormat("d MMM yyyy");
-    return `Start (${startDate}) and end (${endDate}) fall on different days for ${names} (${zone}) - an appointment can't span more than one day.`;
+    return `In ${zone}, start (${startDate}) and end (${endDate}) fall on different days - an appointment can't span more than one day. This affects ${names}.`;
   }
 
   function toggleParticipant(id: string, checked: boolean) {
@@ -108,6 +122,7 @@ export function CreateAppointmentForm({
 
     const parsed = createAppointmentSchema.safeParse({
       title,
+      description,
       start,
       end,
       participantUserIds: participantIds,
@@ -158,6 +173,23 @@ export function CreateAppointmentForm({
             />
             {fieldErrors.title && (
               <p className="text-sm text-destructive">{fieldErrors.title[0]}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="description">
+              Description <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Any extra context for invitees..."
+              rows={3}
+              aria-invalid={fieldErrors.description ? true : undefined}
+            />
+            {fieldErrors.description && (
+              <p className="text-sm text-destructive">{fieldErrors.description[0]}</p>
             )}
           </div>
 
@@ -251,7 +283,7 @@ export function CreateAppointmentForm({
                   `The start time is too far in the future (max ${MAX_ADVANCE_DAYS} days ahead) - double-check the date you entered.`}
                 {v.reason === "crosses-midnight" && crossesMidnightMessage(v.zone)}
                 {v.reason === "outside-working-hours" &&
-                  `Outside working hours (08:00-17:00) for ${participantsInZone(v.zone).join(", ")} (${v.zone}).`}
+                  `In ${v.zone}, this time is outside working hours (08:00-17:00) - this affects ${joinNames(participantsInZone(v.zone))}.`}
               </AlertDescription>
             </Alert>
           ))}

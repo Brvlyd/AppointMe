@@ -29,6 +29,7 @@ export async function listAppointmentsForUser(userId: string, page: number, page
 export async function createAppointment(input: {
   creator: { id: string; preferredTimezone: string };
   title: string;
+  description?: string;
   start: string;
   end: string;
   participantUserIds: string[];
@@ -76,6 +77,7 @@ export async function createAppointment(input: {
 
   const appointment = await appointmentRepository.create({
     title: input.title,
+    description: input.description,
     creatorId: input.creator.id,
     start: utcStart,
     end: utcEnd,

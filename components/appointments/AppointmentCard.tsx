@@ -15,6 +15,7 @@ export function AppointmentCard({
   appointment: {
     id: string;
     title: string;
+    description: string | null;
     start: Date;
     end: Date;
     creator: { id: string; name: string };
@@ -45,6 +46,12 @@ export function AppointmentCard({
           </p>
           <p className="text-sm font-medium text-primary">{start.zoneLabel}</p>
         </div>
+
+        {appointment.description && (
+          <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+            {appointment.description}
+          </p>
+        )}
 
         {appointment.participants.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">

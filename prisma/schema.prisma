@@ -19,13 +19,14 @@ model User {
 }
 
 model Appointment {
-  id        String   @id @default(uuid(7))
-  title     String
-  creatorId String
-  creator   User     @relation("CreatedAppointments", fields: [creatorId], references: [id])
-  start     DateTime @db.Timestamptz
-  end       DateTime @db.Timestamptz
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid(7))
+  title       String
+  description String?
+  creatorId   String
+  creator     User     @relation("CreatedAppointments", fields: [creatorId], references: [id])
+  start       DateTime @db.Timestamptz
+  end         DateTime @db.Timestamptz
+  createdAt   DateTime @default(now())
 
   participants AppointmentParticipant[]
 
