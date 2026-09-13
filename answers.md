@@ -1,177 +1,187 @@
 # answers.md
 
-## 1. Timezone Conflicts
+## 1. Konflik Zona Waktu
 
-All timezone logic lives in one file, `lib/time.ts`, used identically on the server (API
-validation) and the client (live preview in the create form) — there is exactly one
-implementation, not two that could drift apart.
+Seluruh logika zona waktu ada di satu file, `lib/time.ts`, dan dipakai persis sama di server
+(validasi API) maupun di client (preview langsung di form pembuatan janji temu) — jadi hanya
+ada satu implementasi, bukan dua yang bisa berbeda seiring waktu.
 
-**Storage and conversion.** Every `Appointment.start`/`end` is stored as `timestamptz` in
-Postgres (an absolute UTC instant, not a naive timestamp). A user's `preferredTimezone` is
-an IANA zone name (e.g. `Asia/Jakarta`), never a raw offset — offsets break the moment DST
-shifts, IANA names don't. `localWallTimeToUtc(localIso, zone)` interprets a naive
-"YYYY-MM-DDTHH:mm" string (what a `<input type="datetime-local">` produces) as wall-clock
-time *in the creator's own zone*, and converts it to UTC for storage. On display,
-`formatTimeParts`/`formatInZone` do the reverse: convert the stored UTC instant into
-*the currently logged-in viewer's* zone, not the creator's — verified explicitly: the same
-appointment shows `16:00 (Asia/Jakarta)` to one logged-in user and `10:00 (Europe/London)`
-to another, same underlying instant.
+**Penyimpanan dan konversi.** Setiap `Appointment.start`/`end` disimpan sebagai `timestamptz`
+di Postgres (instan UTC absolut, bukan timestamp naif). `preferredTimezone` milik user adalah
+nama zona IANA (mis. `Asia/Jakarta`), bukan offset mentah — offset akan rusak begitu terjadi
+pergeseran DST, sedangkan nama IANA tidak. `localWallTimeToUtc(localIso, zone)` membaca string
+naif "YYYY-MM-DDTHH:mm" (yang dihasilkan `<input type="datetime-local">`) sebagai waktu
+wall-clock *di zona milik pembuat janji temu*, lalu mengonversinya ke UTC untuk disimpan. Saat
+ditampilkan, `formatTimeParts`/`formatInZone` melakukan kebalikannya: mengonversi instan UTC
+yang tersimpan ke zona *milik viewer yang sedang login*, bukan zona pembuatnya — sudah
+diverifikasi langsung: janji temu yang sama tampil `16:00 (Asia/Jakarta)` untuk satu user yang
+login, dan `10:00 (Europe/London)` untuk user lain, padahal instan waktunya sama persis.
 
-**Working-hours conflicts.** `validateAppointmentWindow(utcStart, utcEnd, zones)` checks a
-proposed slot against every participant's zone at once — creator included, since the
-creator is functionally a participant in their own meeting even though they don't get a row
-in `AppointmentParticipant` (that table models *invitees*; the creator relationship is
-`Appointment.creatorId` directly). Two zone-independent facts are checked once, up front:
-the end must be after the start, and (see "additional decision" below) the window can't be
-in the past or absurdly far in the future. Per-zone, two things are checked: the slot must
-fall entirely within 08:00–17:00 local time, and start/end must land on the *same calendar
-day* locally — an appointment can't span more than one day. Zones are de-duplicated before
-the per-zone loop; without that, a creator and an invitee sharing a zone (both in
-`Asia/Jakarta`, say) would produce the identical violation twice.
+**Konflik jam kerja.** `validateAppointmentWindow(utcStart, utcEnd, zones)` mengecek satu slot
+yang diajukan terhadap zona *semua* partisipan sekaligus — termasuk pembuatnya, karena pembuat
+janji temu secara fungsional juga partisipan di rapatnya sendiri, meskipun ia tidak mendapat
+baris di `AppointmentParticipant` (tabel itu memodelkan *undangan*; relasi pembuat ada langsung
+di `Appointment.creatorId`). Dua hal yang tidak bergantung zona dicek sekali di awal: waktu
+selesai harus setelah waktu mulai, dan (lihat "keputusan tambahan" di bawah) slotnya tidak
+boleh di masa lalu atau terlalu jauh di masa depan. Per zona, dua hal dicek: slot harus
+seluruhnya berada dalam jam kerja 08:00–17:00 waktu lokal, dan waktu mulai/selesai harus jatuh
+pada *hari kalender yang sama* secara lokal — sebuah janji temu tidak boleh melewati batas hari.
+Zona-zona di-dedup sebelum loop per-zona; tanpa ini, pembuat dan seorang undangan yang berada
+di zona yang sama (misal sama-sama `Asia/Jakarta`) akan memicu pelanggaran yang identik dua kali.
 
-**Correction to the brief itself.** Section 5 of the client brief cites Asia/Jakarta ↔
-Pacific/Auckland as an example with "no common working-hours slot". That's not actually
-true: Jakarta is UTC+7 and Auckland is UTC+13 in October (NZDT) — only a 6-hour gap, which
-is *narrower* than the 9-hour (08:00–17:00) window, so a common slot must exist by pure
-arithmetic. A unit test (`lib/time.test.ts`) proves it: 08:00–11:00 in Jakarta is exactly
-14:00–17:00 in Auckland, valid for both. The actual zero-overlap pair among the app's own
-seed users is Jakarta ↔ America/New_York (an 11-hour gap, wider than any 9-hour window) —
-that's the pair the tests use to cover the "genuinely no common slot" requirement, and both
-findings are documented in `docs/ASSIGNMENT.md` and `docs/PROGRESS.md` rather than silently
-fixed by swapping the brief's example.
+**Koreksi terhadap brief itu sendiri.** Bagian 5 dari brief klien menyebut Asia/Jakarta ↔
+Pacific/Auckland sebagai contoh pasangan zona yang "tidak punya slot jam kerja yang sama-sama
+cocok". Itu sebenarnya tidak benar: Jakarta UTC+7 dan Auckland UTC+13 di bulan Oktober (NZDT),
+selisihnya cuma 6 jam — lebih sempit dari jendela 9 jam (08:00–17:00), jadi secara matematis
+pasti ada slot yang cocok untuk keduanya. Unit test (`lib/time.test.ts`) membuktikannya: pukul
+08:00–11:00 di Jakarta persis sama dengan 14:00–17:00 di Auckland, valid untuk keduanya.
+Pasangan zona yang benar-benar tidak punya overlap di antara user seed aplikasi ini adalah
+Asia/Jakarta ↔ America/New_York (selisih 11 jam, lebih lebar dari jendela 9 jam manapun) —
+pasangan inilah yang dipakai test untuk menutupi kasus "benar-benar tidak ada slot yang cocok",
+dan kedua temuan ini didokumentasikan di `docs/ASSIGNMENT.md` dan `docs/PROGRESS.md`, bukan
+diam-diam memperbaiki contoh di brief.
 
-**DST.** Luxon + IANA zone data handles the actual date math correctly across a DST
-boundary, but two edge cases needed explicit, tested decisions rather than being left to
-"probably fine":
-- **Spring-forward gap** — a wall-clock time that never occurs (e.g. `02:30` on the day US
-  clocks jump from 02:00 to 03:00). Luxon doesn't reject this; it silently resolves it using
-  the offset *in effect just before* the jump. `lib/time.test.ts` asserts this exact
-  behavior with a comment explaining it, rather than letting it "happen to work" untested.
-- **Fall-back ambiguity** — a wall-clock time that occurs *twice* (e.g. `01:30` when US
-  clocks fall back). Luxon picks the first occurrence. Also asserted explicitly.
+**DST (perubahan jam musiman).** Luxon + data zona IANA menangani perhitungan tanggalnya dengan
+benar saat melewati batas DST, tapi ada dua kasus tepi yang butuh keputusan eksplisit dan
+teruji, bukan sekadar diasumsikan "harusnya sih aman":
+- **Celah maju (spring-forward)** — waktu wall-clock yang sebenarnya tidak pernah terjadi
+  (mis. `02:30` pada hari jam AS melompat dari 02:00 ke 03:00). Luxon tidak menolak input ini;
+  ia diam-diam menyelesaikannya memakai offset yang berlaku *tepat sebelum* lompatan tersebut.
+  `lib/time.test.ts` memverifikasi perilaku ini secara eksplisit lengkap dengan komentar
+  penjelasannya, alih-alih dibiarkan "kebetulan jalan" tanpa test.
+- **Ambiguitas mundur (fall-back)** — waktu wall-clock yang terjadi *dua kali* (mis. `01:30`
+  saat jam AS mundur). Luxon memilih kemunculan pertama. Ini juga diverifikasi secara eksplisit.
 
-**Cross-midnight, why rejected rather than allowed:** the brief doesn't require multi-day
-appointments, and allowing them opens exactly the ambiguity this project is meant to avoid
-— e.g. "23:00 to 01:00" spans a date boundary that reads differently depending on which
-day's working-hours window you check it against. Rejecting it (with a message naming the
-actual dates on both sides, e.g. "start (22 Oct) and end (31 Oct) fall on different days")
-keeps the working-hours rule unambiguous: a single calendar day, in each participant's own
-zone, or it's invalid. If a real product needed multi-day events, that would be a
-deliberately separate feature with its own rules, not an accidental side effect of loose
-validation.
+**Kenapa janji temu lintas tengah malam ditolak, bukan diizinkan:** brief tidak mensyaratkan
+janji temu multi-hari, dan mengizinkannya justru membuka ambiguitas yang sebenarnya ingin
+dihindari proyek ini — misalnya "23:00 sampai 01:00" melewati batas tanggal, dan bisa dibaca
+berbeda tergantung jendela jam kerja hari yang mana yang dipakai untuk mengeceknya. Menolaknya
+(dengan pesan yang menyebut tanggal aslinya di kedua sisi, mis. "waktu mulai (22 Okt) dan
+selesai (31 Okt) jatuh di hari yang berbeda") membuat aturan jam kerja tetap tidak ambigu: satu
+hari kalender, di zona masing-masing partisipan, atau dianggap tidak valid. Jika produk nyata
+butuh event multi-hari, itu akan jadi fitur terpisah dengan aturannya sendiri, bukan efek
+samping tak sengaja dari validasi yang longgar.
 
-**Additional decision found during manual testing, not in the original design:** a mistyped
-date field (a user typed a year like `0111` instead of `2026`) produced a technically valid
-ISO date that was simply *wrong*, and since nothing checked "is this appointment actually
-in the future", it silently saved and then looked like a disappearing-appointment bug (it
-was correctly excluded from the "upcoming" list, just not from creation). Fixed by adding
-`start-in-the-past` and `too-far-in-future` (capped at ~2 years) checks to
-`validateAppointmentWindow` itself — the same function both the server and the live client
-preview call — plus native `min`/`max` bounds on the date pickers as a first line of
-defense, not the authoritative one.
+**Keputusan tambahan yang ditemukan saat pengujian manual, bukan bagian dari desain awal:**
+kesalahan ketik pada field tanggal (user mengetik tahun `0111` alih-alih `2026`) menghasilkan
+tanggal ISO yang secara teknis valid tapi sebenarnya *salah*, dan karena tidak ada pengecekan
+"apakah janji temu ini benar-benar di masa depan", data ini tersimpan begitu saja lalu terlihat
+seperti bug "janji temu menghilang" (janji temu itu memang benar dikecualikan dari daftar
+"mendatang", hanya saja tidak dicegah saat pembuatan). Diperbaiki dengan menambahkan pengecekan
+`start-in-the-past` dan `too-far-in-future` (dibatasi sekitar 2 tahun) langsung di
+`validateAppointmentWindow` — fungsi yang sama yang dipanggil baik oleh server maupun preview
+langsung di client — ditambah batas `min`/`max` native pada date picker sebagai lapis pertahanan
+pertama, bukan yang utama.
 
-## 2. Database Optimization
+## 2. Optimasi Database
 
-Indexes exist on every column the query patterns actually filter or join on:
-`User.username` (unique, used on every login lookup), `Appointment.creatorId` and
-`Appointment.start` (used together by the "my upcoming appointments" query — filter by
-`start >= now()`, sorted by `start`, for a user who is either the creator or an invitee),
-and `AppointmentParticipant.userId`. That last one is easy to miss: `AppointmentParticipant`
-has a composite primary key on `(appointmentId, userId)`, which Postgres can use
-efficiently for lookups *starting from* `appointmentId` — but the "which appointments is
-this user invited to" query starts from `userId`, the second column, which a composite PK
-doesn't serve efficiently. Without the explicit `@@index([userId])`, that half of the
-"upcoming appointments" query would silently degrade to a full scan as the table grows.
+Index dibuat pada setiap kolom yang benar-benar dipakai untuk filter atau join oleh pola query
+yang ada: `User.username` (unique, dipakai di setiap pencarian saat login),
+`Appointment.creatorId` dan `Appointment.start` (dipakai bersama oleh query "janji temu
+mendatang milik saya" — filter `start >= now()`, diurutkan berdasarkan `start`, untuk user yang
+berperan sebagai pembuat atau undangan), dan `AppointmentParticipant.userId`. Yang terakhir ini
+gampang terlewat: `AppointmentParticipant` punya primary key komposit di `(appointmentId,
+userId)`, yang bisa dipakai Postgres secara efisien untuk pencarian *yang dimulai dari*
+`appointmentId` — tapi query "janji temu apa saja yang mengundang user ini" dimulai dari
+`userId`, kolom kedua, yang tidak dilayani secara efisien oleh PK komposit. Tanpa
+`@@index([userId])` secara eksplisit, separuh dari query "janji temu mendatang" itu akan diam-
+diam menurun jadi full scan seiring bertambahnya data.
 
-**No N+1, proven rather than assumed.** `listForUser()` was checked by literally enabling
-Prisma's query logging (`log: ["query"]`) and reading the generated SQL, not by reasoning
-about it in the abstract. The result was more nuanced than "it's one JOIN": Prisma's current
-client (with the `@prisma/adapter-pg` driver adapter) doesn't compile `include` into a
-single SQL JOIN by default — it batches relation fetches into separate `SELECT ... WHERE id
-IN (...)` queries. For a page of appointments, that's roughly five queries total (the main
-`Appointment` list, one batched `User` fetch for creators, one batched
-`AppointmentParticipant` fetch, one batched `User` fetch for participants, plus a `COUNT`
-for pagination) — but critically, that count stays *constant* regardless of how many
-appointments are on the page, because every one of those follow-up queries uses `IN (...)`
-across all the IDs from the first query at once, rather than looping and re-querying per
-row. That's the actual definition of "no N+1" — Prisma just satisfies it via batching
-instead of a literal JOIN. (There's an opt-in `relationLoadStrategy: 'join'` if a literal
-JOIN were ever required, e.g. for a single round-trip to a remote DB replica, but nothing
-here needed it.)
+**Tidak ada N+1, dibuktikan bukan sekadar diasumsikan.** `listForUser()` dicek dengan cara
+benar-benar mengaktifkan query logging Prisma (`log: ["query"]`) lalu membaca SQL yang
+dihasilkan, bukan dengan menalar secara abstrak. Hasilnya lebih nuansa dari sekadar "satu JOIN":
+Prisma client versi ini (dengan driver adapter `@prisma/adapter-pg`) secara default tidak
+mengompilasi `include` menjadi satu JOIN SQL — ia mengelompokkan pengambilan relasi menjadi
+beberapa query `SELECT ... WHERE id IN (...)` terpisah. Untuk satu halaman daftar janji temu,
+itu kurang lebih lima query total (daftar `Appointment` utama, satu batch fetch `User` untuk
+para pembuat, satu batch fetch `AppointmentParticipant`, satu batch fetch `User` untuk para
+partisipan, ditambah satu `COUNT` untuk pagination) — tapi yang krusial, jumlah query itu
+*tetap konstan* berapa pun banyaknya janji temu di halaman tersebut, karena setiap query
+lanjutan itu memakai `IN (...)` atas semua ID dari query pertama sekaligus, bukan melakukan
+loop dan query ulang per baris. Itulah definisi sebenarnya dari "tidak ada N+1" — Prisma
+memenuhinya lewat batching, bukan lewat JOIN literal. (Ada opsi `relationLoadStrategy: 'join'`
+kalau suatu saat memang butuh JOIN literal, misalnya untuk satu round-trip ke replika DB jarak
+jauh, tapi tidak ada kebutuhan itu di sini.)
 
-**Pagination** on both list endpoints (`GET /api/users`, `GET /api/appointments`) uses
-`skip`/`take` with a capped `pageSize` (max 50), paired with a `count()` in the same
-`$transaction` as the `findMany()` so the total and the page are consistent with each other
-without a second round-trip.
+**Pagination** di kedua endpoint daftar (`GET /api/users`, `GET /api/appointments`) memakai
+`skip`/`take` dengan `pageSize` yang dibatasi (maksimum 50), dipasangkan dengan `count()` dalam
+`$transaction` yang sama seperti `findMany()`-nya, supaya total dan isi halaman tetap konsisten
+satu sama lain tanpa perlu round-trip kedua.
 
-## 3. Additional Features
+## 3. Fitur Tambahan
 
-**Real authentication would be priority #1, before anything else listed here.** The current
-login is username-only with no password or credential of any kind — knowing a valid
-username is the entire authentication requirement, by the brief's own design ("Login with
-username only — no password field anywhere"). That's fine as a deliberate constraint for
-this exercise, but it means anyone who knows (or guesses) `dewi` is logged in as Dewi with
-no further check. For a real product this would need actual credentials — password with
-proper hashing (argon2/bcrypt), or better, passwordless auth via a one-time code sent to a
-verified email/phone (OTP), which also sidesteps password-reuse and phishing risks that
-plain passwords carry. This isn't a nice-to-have; it's the one gap that makes the current
-system unsuitable to expose beyond a trusted demo.
+**Autentikasi yang sesungguhnya adalah prioritas #1, sebelum apa pun di daftar ini.** Login
+saat ini hanya berbasis username tanpa password atau kredensial apa pun — mengetahui sebuah
+username yang valid sudah cukup untuk masuk, sesuai desain brief itu sendiri ("Login dengan
+username saja — tanpa field password sama sekali"). Itu wajar sebagai batasan yang memang
+disengaja untuk keperluan technical test ini, tapi artinya siapa pun yang tahu (atau menebak)
+username `dewi` bisa langsung login sebagai Dewi tanpa pengecekan lain. Untuk produk nyata, ini
+butuh kredensial sungguhan — password dengan hashing yang benar (argon2/bcrypt), atau lebih
+baik lagi, autentikasi tanpa password lewat kode sekali pakai (OTP) yang dikirim ke email/nomor
+yang sudah terverifikasi, yang sekaligus menghindari risiko pemakaian ulang password dan
+phishing yang melekat pada password biasa. Ini bukan sekadar nice-to-have; ini satu-satunya
+celah yang membuat sistem saat ini belum layak dipakai di luar demo tepercaya.
 
-Beyond that, roughly in the order I'd actually build them:
+Di luar itu, kira-kira urutan yang akan saya bangun:
 
-- **Editing and cancelling appointments.** Right now appointments are create-only —
-  no update, no cancel, no "decline this invite" for a participant. This is a large gap for
-  a scheduling tool specifically (plans change), and is a natural extension of the layered
-  architecture already in place (a new service method + route, reusing the same
-  `validateAppointmentWindow`).
-- **Notifications** — an invitee currently only finds out about an appointment by opening
-  the app. Email or push notification on invite/change/cancel would make the "invite other
-  users" feature actually useful in practice rather than something you have to remember to
-  check for.
-- **Suggested times when a slot doesn't work for everyone.** The app currently detects and
-  explains a working-hours conflict (per the rubric's "handled or acknowledged" bar) but
-  doesn't help resolve it. Given all participants' zones, it's straightforward to compute
-  and suggest the actual overlapping windows (as `lib/time.ts`'s per-zone check already
-  proves exist or don't, per participant) rather than leaving the creator to guess-and-check
-  by hand.
-- **Profile photo.** Came up directly while building the profile settings page (name +
-  timezone) — deliberately deferred because it needs real file upload handling and
-  persistent object storage (S3/Cloudinary; local disk doesn't survive most deployment
-  targets), which is meaningfully more infrastructure than anything else in this app, for a
-  feature that's cosmetic rather than functional.
+- **Membiarkan partisipan menolak undangan (decline invite).** Saat ini pembuat janji temu
+  sudah bisa mengedit dan menghapus (fitur ini baru selesai dibangun setelah draf awal jawaban
+  ini), tapi seorang partisipan yang diundang tidak punya cara untuk bilang "saya tidak bisa
+  hadir" atau melepaskan diri dari janji temu yang bukan dibuatnya sendiri. Ini masih celah
+  nyata untuk sebuah alat penjadwalan, dan merupakan perluasan alami dari arsitektur berlapis
+  yang sudah ada (method service baru + route, memakai ulang `validateAppointmentWindow` yang
+  sama).
+- **Notifikasi** — seorang undangan saat ini hanya tahu ada janji temu kalau ia membuka
+  aplikasinya sendiri. Notifikasi email atau push saat diundang/diubah/dibatalkan akan membuat
+  fitur "undang user lain" benar-benar berguna di praktiknya, bukan sesuatu yang harus diingat-
+  ingat untuk dicek manual.
+- **Saran waktu ketika satu slot tidak cocok untuk semua orang.** Aplikasi saat ini sudah
+  mendeteksi dan menjelaskan konflik jam kerja (memenuhi standar rubrik "ditangani atau
+  diakui"), tapi belum membantu menyelesaikannya. Dengan zona semua partisipan yang sudah
+  diketahui, cukup mudah untuk menghitung dan menyarankan jendela waktu yang benar-benar
+  overlap (seperti yang sudah dibuktikan ada/tidaknya oleh pengecekan per-zona di `lib/time.ts`)
+  alih-alih membiarkan pembuat menebak-nebak secara manual.
+- **Foto profil.** Muncul langsung saat membangun halaman pengaturan profil (nama + zona
+  waktu) — sengaja ditunda karena butuh penanganan upload file sungguhan dan object storage
+  yang persisten (S3/Cloudinary; disk lokal tidak bertahan di sebagian besar target deployment),
+  yang jauh lebih banyak infrastrukturnya dibanding fitur lain di aplikasi ini, untuk sebuah
+  fitur yang sifatnya kosmetik, bukan fungsional.
 
-## 4. Session Management
+## 4. Manajemen Sesi
 
-The JWT payload is deliberately minimal: `{ sub, iat, exp }` — the user's id and the two
-timestamps the `jsonwebtoken` library manages itself. No name, timezone, or role rides
-along, so nothing about the token becomes stale if the user later changes their profile (as
-they now can, via the settings page) and there's nothing worth extracting from a stolen
-token beyond "which user id" — no PII. Anything else the app needs about the user (name,
-timezone) is fetched fresh from the database on each request via `getCurrentUser()`, wrapped
-in React's `cache()` so that a layout's auth check and a page's own data fetch in the same
-request don't cause a duplicate DB round-trip.
+Payload JWT sengaja dibuat seminimal mungkin: `{ sub, iat, exp }` — id user dan dua timestamp
+yang memang dikelola sendiri oleh library `jsonwebtoken`. Tidak ada nama, zona waktu, atau role
+yang ikut terbawa, jadi tidak ada bagian dari token yang jadi basi kalau user mengubah profilnya
+nanti (yang sekarang bisa mereka lakukan lewat halaman pengaturan), dan tidak ada apa pun yang
+berharga untuk diekstrak dari token yang dicuri selain "user id yang mana" — tanpa data pribadi
+(PII). Hal lain yang dibutuhkan aplikasi tentang user (nama, zona waktu) selalu diambil segar
+dari database di setiap request lewat `getCurrentUser()`, dibungkus `cache()` dari React supaya
+pengecekan auth di layout dan pengambilan data di page dalam satu request yang sama tidak
+memicu dua kali round-trip ke database.
 
-**Expiry is enforced server-side, not just implied by a cookie setting.** The cookie itself
-carries `httpOnly` (inaccessible to JS, so an XSS payload can't read or exfiltrate it),
-`sameSite=lax` (blocks it being sent on a cross-site POST, which is most of what CSRF
-protection needs here without a separate CSRF token), and `secure` gated to production only
-(so local HTTP dev still works) — but the cookie's own `maxAge` is just browser-side
-housekeeping so a stale cookie eventually gets swept. The actual enforcement is
-`jwt.verify()`'s own check of the `exp` claim, run inside `verifyToken()` on *every*
-protected request, wrapped in a try/catch that turns `TokenExpiredError` (and any other
-verification failure — bad signature, malformed token) into a clean `null` rather than an
-uncaught exception. This was tested directly rather than assumed: a token manually signed
-with a `-1h` expiry, using the real secret, was rejected by `/api/auth/me` (401) and by the
-protected page (redirects to `/login`) exactly the same as if a full hour had actually
-passed — because `jwt.verify()` only ever compares `exp` against the current clock, it has
-no notion of "how it got old", so this is the correct, deterministic way to test a 1-hour
-expiry without waiting an hour.
+**Masa berlaku ditegakkan di sisi server, bukan cuma diasumsikan lewat setelan cookie.** Cookie-
+nya sendiri memakai `httpOnly` (tidak bisa diakses JS, jadi payload XSS tidak bisa membaca atau
+mengeksfiltrasinya), `sameSite=lax` (memblokir cookie ikut terkirim pada POST lintas situs, yang
+menutupi sebagian besar kebutuhan perlindungan CSRF di sini tanpa perlu token CSRF terpisah),
+dan `secure` yang hanya aktif di production (supaya dev lokal via HTTP tetap jalan) — tapi
+`maxAge` pada cookie itu sendiri cuma housekeeping di sisi browser supaya cookie basi akhirnya
+tersapu. Penegakan sesungguhnya ada di pengecekan klaim `exp` oleh `jwt.verify()` sendiri, yang
+dijalankan di dalam `verifyToken()` pada *setiap* request yang dilindungi, dibungkus try/catch
+yang mengubah `TokenExpiredError` (dan kegagalan verifikasi lainnya — signature salah, token
+rusak) menjadi `null` yang bersih, bukan exception yang tidak tertangani. Ini diuji langsung,
+bukan sekadar diasumsikan: sebuah token yang ditandatangani manual dengan masa berlaku `-1h`,
+memakai secret asli, ditolak oleh `/api/auth/me` (401) dan oleh halaman terproteksi (redirect ke
+`/login`) — persis sama seolah-olah satu jam sungguhan sudah berlalu — karena `jwt.verify()`
+hanya membandingkan `exp` terhadap jam saat ini, ia tidak peduli "bagaimana token itu jadi
+basi", jadi ini cara yang benar dan deterministik untuk menguji masa berlaku 1 jam tanpa harus
+menunggu satu jam sungguhan.
 
-One gap this surfaced during testing that's worth naming explicitly: a layout-level auth
-check does *not* reliably re-run on Next.js client-side navigation between sibling pages
-under the same layout — so a session that goes stale mid-visit (its underlying user id no
-longer valid) could crash a page instead of redirecting, if the layout were the only check.
-The fix was to check `getCurrentUser()` again in each individual page, not only the shared
-layout — slightly less DRY, but the correct place for an authorization check per Next.js's
-own guidance, and confirmed by reproducing the exact failure before the fix and its absence
-after.
+Satu celah yang terungkap saat pengujian, dan layak disebutkan secara eksplisit: pengecekan auth
+di level layout ternyata tidak selalu jalan ulang secara andal saat navigasi client-side antar
+halaman sibling di bawah layout yang sama — jadi sesi yang jadi basi di tengah kunjungan
+(user id di baliknya sudah tidak valid lagi) bisa membuat sebuah halaman crash alih-alih
+redirect, kalau layout dijadikan satu-satunya pengecekan. Perbaikannya adalah mengecek
+`getCurrentUser()` lagi di setiap halaman satu per satu, bukan hanya di layout bersama — sedikit
+kurang DRY, tapi memang itu tempat yang benar untuk pengecekan otorisasi menurut panduan
+Next.js sendiri, dan sudah dikonfirmasi dengan mereproduksi kegagalan persisnya sebelum
+perbaikan, lalu memastikan kegagalan itu hilang sesudahnya.
