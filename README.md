@@ -5,6 +5,21 @@ preferred IANA timezone, create appointments, and invite other users — every t
 converted and displayed in the viewer's own timezone, and an appointment can only be
 scheduled inside working hours (08:00–17:00) for every participant, creator included.
 
+**Live demo:** [appoint-me-psi.vercel.app](https://appoint-me-psi.vercel.app/)
+
+**Video walkthrough:** [Google Drive](https://drive.google.com/file/d/1eFosK7GQtOc0F8MV6PggW1sGQ5L-pnv-/view?usp=sharing)
+
+## Screenshots
+
+| | |
+|---|---|
+| Login | Empty state |
+| ![Login](screenshots/01-login.png) | ![Empty appointments list](screenshots/02-appointments-empty.png) |
+| Appointments list | Appointment detail (creator view) |
+| ![Appointments list](screenshots/03-appointments-list.png) | ![Appointment detail](screenshots/04-appointment-detail.png) |
+| Edit appointment | Profile settings |
+| ![Edit appointment](screenshots/05-appointment-edit.png) | ![Profile settings](screenshots/06-profile.png) |
+
 ## Tech stack
 
 | Layer | Choice |
