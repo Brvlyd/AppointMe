@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/LogoutButton";
 
 export function Header({ user }: { user: { name: string; preferredTimezone: string } }) {
@@ -18,10 +19,22 @@ export function Header({ user }: { user: { name: string; preferredTimezone: stri
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden text-right leading-tight text-primary-foreground sm:block">
+          <Link
+            href="/profile"
+            className="hidden text-right leading-tight text-primary-foreground hover:underline sm:block"
+          >
             <p className="text-sm font-medium">{user.name}</p>
             <p className="text-xs text-primary-foreground/70">{user.preferredTimezone}</p>
-          </div>
+          </Link>
+          <Button
+            render={<Link href="/profile" />}
+            nativeButton={false}
+            variant="ghost"
+            size="sm"
+            className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+          >
+            Profile
+          </Button>
           <LogoutButton />
         </div>
       </div>

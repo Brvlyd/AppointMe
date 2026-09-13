@@ -12,6 +12,10 @@ export function findManyByIds(ids: string[]) {
   return db.user.findMany({ where: { id: { in: ids } } });
 }
 
+export function update(id: string, data: { name: string; preferredTimezone: string }) {
+  return db.user.update({ where: { id }, data });
+}
+
 const userSummarySelect = {
   id: true,
   name: true,
