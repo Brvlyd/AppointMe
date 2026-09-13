@@ -19,7 +19,7 @@ export default async function AppointmentsLayout({ children }: { children: React
     >
       <Header user={user} />
       <div className="h-1 w-full bg-linear-to-r from-primary via-indigo-400 to-amber-500" />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-8 pb-40 sm:pb-28">{children}</main>
       <FloatingMascot />
     </div>
   );

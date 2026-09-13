@@ -17,9 +17,9 @@ export function FloatingMascot() {
         <Image
           src="/brand/mascot/Arrangy.png"
           alt=""
-          width={120}
-          height={120}
-          className="size-24 cursor-default select-none drop-shadow-lg transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-125 sm:size-28"
+          width={180}
+          height={180}
+          className="size-28 cursor-default select-none drop-shadow-xl transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-125 sm:size-36 lg:size-40"
         />
       </div>
     </div>
