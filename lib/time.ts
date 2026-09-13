@@ -50,16 +50,22 @@ export function isWithinWorkingHours(utcInstant: Date, zone: string): boolean {
   );
 }
 
+/** How far into the future an appointment may be scheduled - rejects garbage/typo years (e.g. a stray digit turning 2026 into 20260). */
+export const MAX_ADVANCE_DAYS = 730;
+
 export type AppointmentViolation =
   | { reason: "end-before-start" }
+  | { reason: "start-in-the-past" }
+  | { reason: "too-far-in-future" }
   | { reason: "crosses-midnight"; zone: string; localStart: string; localEnd: string }
   | { reason: "outside-working-hours"; zone: string; localStart: string; localEnd: string };
 
 /**
  * Validates a proposed appointment window against every participant's
- * timezone at once. `end-before-start` is a global, zone-independent fact and
- * is checked once up front; everything else is checked per participant so a
- * caller can report exactly who the slot doesn't work for.
+ * timezone at once. `end-before-start`, `start-in-the-past`, and
+ * `too-far-in-future` are global, zone-independent facts and are checked
+ * once up front; everything else is checked per participant so a caller can
+ * report exactly who the slot doesn't work for.
  */
 export function validateAppointmentWindow(
   utcStart: Date,
@@ -68,6 +74,15 @@ export function validateAppointmentWindow(
 ): { valid: boolean; violations: AppointmentViolation[] } {
   if (utcEnd <= utcStart) {
     return { valid: false, violations: [{ reason: "end-before-start" }] };
+  }
+
+  const now = Date.now();
+  if (utcStart.getTime() < now) {
+    return { valid: false, violations: [{ reason: "start-in-the-past" }] };
+  }
+
+  if (utcStart.getTime() > now + MAX_ADVANCE_DAYS * 24 * 60 * 60 * 1000) {
+    return { valid: false, violations: [{ reason: "too-far-in-future" }] };
   }
 
   const violations: AppointmentViolation[] = [];

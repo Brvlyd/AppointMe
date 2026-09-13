@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_ADVANCE_DAYS,
   formatInZone,
   isWithinWorkingHours,
   localWallTimeToUtc,
@@ -59,6 +60,39 @@ describe("validateAppointmentWindow", () => {
     const result = validateAppointmentWindow(start, end, ["Asia/Jakarta", "Europe/London"]);
     expect(result.valid).toBe(false);
     expect(result.violations).toEqual([{ reason: "end-before-start" }]);
+  });
+
+  it("rejects a start time in the past - including garbage years like 0111 from a mistyped year field", () => {
+    // Uses Date.now() rather than a fixed year so this doesn't rot as real
+    // time passes, unlike the fixed-2026 tests elsewhere in this file.
+    const start = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
+    const end = new Date(Date.now() + 60 * 60 * 1000);
+    const result = validateAppointmentWindow(start, end, ["Asia/Jakarta"]);
+    expect(result.valid).toBe(false);
+    expect(result.violations).toEqual([{ reason: "start-in-the-past" }]);
+
+    // The actual bug report: a mistyped year field produced "0111" instead
+    // of "2026" - a 4-digit, ISO-8601-valid, but nonsensically old date that
+    // slipped through with no year-sanity check at all.
+    const yearZero = new Date("0111-02-22T04:00:00Z");
+    const result2 = validateAppointmentWindow(
+      yearZero,
+      new Date("0111-02-22T05:00:00Z"),
+      ["Asia/Jakarta"]
+    );
+    expect(result2.valid).toBe(false);
+    expect(result2.violations).toEqual([{ reason: "start-in-the-past" }]);
+  });
+
+  it("rejects a start time more than MAX_ADVANCE_DAYS in the future", () => {
+    const tooFar = new Date(Date.now() + (MAX_ADVANCE_DAYS + 5) * 24 * 60 * 60 * 1000);
+    const result = validateAppointmentWindow(
+      tooFar,
+      new Date(tooFar.getTime() + 60 * 60 * 1000),
+      ["Asia/Jakarta"]
+    );
+    expect(result.valid).toBe(false);
+    expect(result.violations).toEqual([{ reason: "too-far-in-future" }]);
   });
 
   it("passes when the slot is within working hours for every participant", () => {

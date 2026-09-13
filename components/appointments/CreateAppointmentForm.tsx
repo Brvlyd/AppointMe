@@ -8,8 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { DateTime } from "luxon";
 import { createAppointmentSchema } from "@/lib/validators/appointment";
-import { localWallTimeToUtc, validateAppointmentWindow, type AppointmentViolation } from "@/lib/time";
+import {
+  MAX_ADVANCE_DAYS,
+  localWallTimeToUtc,
+  validateAppointmentWindow,
+  type AppointmentViolation,
+} from "@/lib/time";
 
 type User = { id: string; name: string; username: string; preferredTimezone: string };
 
@@ -30,6 +36,15 @@ export function CreateAppointmentForm({
   const [submitting, setSubmitting] = useState(false);
 
   const selectedParticipants = invitableUsers.filter((u) => participantIds.includes(u.id));
+
+  // Native browser bounds for the pickers - mirrors the same rule enforced in
+  // lib/time.ts (no past dates, nothing absurdly far out like a mistyped
+  // year). This narrows the picker UI but isn't the authoritative check: a
+  // manually-typed value still has to pass validateAppointmentWindow below
+  // and the server's own call to it.
+  const nowInZone = DateTime.now().setZone(currentUser.preferredTimezone);
+  const minDateTime = nowInZone.toFormat("yyyy-MM-dd'T'HH:mm");
+  const maxDateTime = nowInZone.plus({ days: MAX_ADVANCE_DAYS }).toFormat("yyyy-MM-dd'T'HH:mm");
 
   // Live conflict preview, reusing the exact same validation the server runs.
   // Only runs once both start and end are filled with something parseable -
@@ -131,6 +146,8 @@ export function CreateAppointmentForm({
                 type="datetime-local"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
+                min={minDateTime}
+                max={maxDateTime}
                 aria-invalid={fieldErrors.start ? true : undefined}
               />
               {fieldErrors.start && (
@@ -144,6 +161,8 @@ export function CreateAppointmentForm({
                 type="datetime-local"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
+                min={minDateTime}
+                max={maxDateTime}
                 aria-invalid={fieldErrors.end ? true : undefined}
               />
               {fieldErrors.end && <p className="text-sm text-destructive">{fieldErrors.end[0]}</p>}
@@ -202,6 +221,9 @@ export function CreateAppointmentForm({
             <Alert key={i} variant="destructive">
               <AlertDescription>
                 {v.reason === "end-before-start" && "End time must be after the start time."}
+                {v.reason === "start-in-the-past" && "The start time can't be in the past."}
+                {v.reason === "too-far-in-future" &&
+                  `The start time is too far in the future (max ${MAX_ADVANCE_DAYS} days ahead) - double-check the date you entered.`}
                 {v.reason === "crosses-midnight" &&
                   `Crosses midnight for ${participantsInZone(v.zone).join(", ")} (${v.zone}).`}
                 {v.reason === "outside-working-hours" &&
