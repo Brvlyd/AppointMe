@@ -14,7 +14,10 @@ export default async function AppointmentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-semibold">Upcoming appointments</h1>
+        <h1 className="flex items-center gap-2.5 font-heading text-xl font-semibold">
+          <span className="size-2.5 rounded-full bg-primary" aria-hidden />
+          Upcoming appointments
+        </h1>
         <Button
           render={<Link href="/appointments/new" />}
           nativeButton={false}
@@ -25,7 +28,7 @@ export default async function AppointmentsPage() {
       </div>
 
       {appointments.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-4xl border border-dashed border-border py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-4xl border border-dashed border-primary/30 bg-primary/5 py-16 text-center">
           <Image src="/brand/mascot/Arrangy.png" alt="" width={100} height={100} />
           <div>
             <p className="font-medium">No appointments yet</p>

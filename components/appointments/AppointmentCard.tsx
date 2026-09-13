@@ -28,7 +28,7 @@ export function AppointmentCard({
   const isCreator = appointment.creator.id === viewerId;
 
   return (
-    <Card>
+    <Card className="border-l-4 border-l-primary">
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-heading text-base font-medium">{appointment.title}</h3>
@@ -51,7 +51,7 @@ export function AppointmentCard({
             {appointment.participants.map((p) => (
               <span
                 key={p.userId}
-                className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
+                className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
               >
                 {p.user.name} · {p.user.preferredTimezone}
               </span>

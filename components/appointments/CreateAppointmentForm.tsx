@@ -167,20 +167,23 @@ export function CreateAppointmentForm({
                 const zoneHasConflict = violations.some(
                   (v) => "zone" in v && v.zone === u.preferredTimezone
                 );
+                const isSelected = participantIds.includes(u.id);
                 return (
                   <label
                     key={u.id}
-                    className="flex items-center gap-3 rounded-2xl border border-border px-3 py-2"
+                    className={`flex items-center gap-3 rounded-2xl border px-3 py-2 transition-colors ${
+                      isSelected ? "border-primary/40 bg-primary/5" : "border-border"
+                    }`}
                   >
                     <Checkbox
-                      checked={participantIds.includes(u.id)}
+                      checked={isSelected}
                       onCheckedChange={(checked) => toggleParticipant(u.id, checked === true)}
                     />
                     <span className="flex-1 text-sm">
                       {u.name}{" "}
                       <span className="text-muted-foreground">({u.preferredTimezone})</span>
                     </span>
-                    {participantIds.includes(u.id) && zoneHasConflict && (
+                    {isSelected && zoneHasConflict && (
                       <span className="text-xs font-medium text-destructive">
                         Outside working hours
                       </span>
