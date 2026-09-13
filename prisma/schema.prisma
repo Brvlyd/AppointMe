@@ -6,3 +6,39 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id                String   @id @default(uuid(7))
+  name              String
+  username          String   @unique
+  preferredTimezone String
+  createdAt         DateTime @default(now())
+
+  createdAppointments Appointment[]            @relation("CreatedAppointments")
+  participatingIn     AppointmentParticipant[]
+}
+
+model Appointment {
+  id        String   @id @default(uuid(7))
+  title     String
+  creatorId String
+  creator   User     @relation("CreatedAppointments", fields: [creatorId], references: [id])
+  start     DateTime @db.Timestamptz
+  end       DateTime @db.Timestamptz
+  createdAt DateTime @default(now())
+
+  participants AppointmentParticipant[]
+
+  @@index([creatorId])
+  @@index([start])
+}
+
+model AppointmentParticipant {
+  appointmentId String
+  userId        String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@id([appointmentId, userId])
+  @@index([userId])
+}
