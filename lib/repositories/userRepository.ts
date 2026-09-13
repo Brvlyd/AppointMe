@@ -7,3 +7,27 @@ export function findByUsername(username: string) {
 export function findById(id: string) {
   return db.user.findUnique({ where: { id } });
 }
+
+export function findManyByIds(ids: string[]) {
+  return db.user.findMany({ where: { id: { in: ids } } });
+}
+
+const userSummarySelect = {
+  id: true,
+  name: true,
+  username: true,
+  preferredTimezone: true,
+} as const;
+
+export async function list({ skip, take }: { skip: number; take: number }) {
+  const [users, total] = await db.$transaction([
+    db.user.findMany({
+      skip,
+      take,
+      orderBy: { username: "asc" },
+      select: userSummarySelect,
+    }),
+    db.user.count(),
+  ]);
+  return { users, total };
+}
