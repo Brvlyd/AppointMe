@@ -18,6 +18,9 @@ async function main() {
     db.user.create({
       data: { name: "Oliver Hughes", username: "oliver", preferredTimezone: "Europe/London" },
     }),
+    db.user.create({
+      data: { name: "Bravely", username: "bravely", preferredTimezone: "Asia/Jakarta" },
+    }),
   ]);
 
   await db.appointment.create({

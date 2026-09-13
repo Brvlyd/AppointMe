@@ -48,10 +48,10 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4">
       <Image
-        src="/brand/mascot/Arrangy.png"
+        src="/brand/mascot/Arrangy_landingPage.png"
         alt=""
-        width={140}
-        height={140}
+        width={220}
+        height={220}
         priority
         className="select-none"
       />
@@ -61,8 +61,8 @@ export default function LoginPage() {
           <Image
             src="/brand/logo/appointme-dark.png"
             alt="AppointMe!"
-            width={194}
-            height={44}
+            width={282}
+            height={64}
             priority
           />
           <p className="text-sm text-muted-foreground">
