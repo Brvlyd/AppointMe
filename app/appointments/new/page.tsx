@@ -1,10 +1,15 @@
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/services/authService";
 import { listUsers } from "@/lib/services/userService";
 import { CreateAppointmentForm } from "@/components/appointments/CreateAppointmentForm";
 
 export default async function NewAppointmentPage() {
-  // Layout above already redirects if unauthenticated.
-  const user = (await getCurrentUser())!;
+  // See app/appointments/page.tsx for why this page checks again instead of
+  // trusting the layout alone.
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
   // Only 4 seed users exist - one large page is simpler than building
   // pagination UI for an invite picker that will rarely have many entries.
   const { data: users } = await listUsers(1, 50);

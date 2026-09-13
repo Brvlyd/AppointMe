@@ -1,14 +1,23 @@
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/services/authService";
 import { listAppointmentsForUser } from "@/lib/services/appointmentService";
 import { AppointmentCard } from "@/components/appointments/AppointmentCard";
 import { Button } from "@/components/ui/button";
 
 export default async function AppointmentsPage() {
-  // Layout above already redirects if unauthenticated; user is guaranteed
-  // here, and getCurrentUser() is cache()-deduped so this is not a second DB hit.
-  const user = (await getCurrentUser())!;
+  // The layout above also checks this, but Next.js doesn't always re-run a
+  // shared layout on client-side navigation between sibling pages under it
+  // (see "Layouts and auth checks" in the Next.js auth guide) - without this
+  // page-level check too, a session that goes stale mid-visit (e.g. the
+  // referenced user no longer exists) crashes here instead of redirecting.
+  // getCurrentUser() is cache()-deduped, so this isn't a second DB hit when
+  // the layout's own check just ran in the same request.
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
   const { data: appointments } = await listAppointmentsForUser(user.id, 1, 20);
 
   return (
