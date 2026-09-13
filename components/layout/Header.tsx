@@ -4,7 +4,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 
 export function Header({ user }: { user: { name: string; preferredTimezone: string } }) {
   return (
-    <header className="sticky top-0 z-10 border-b-4 border-amber-500 bg-primary shadow-md">
+    <header className="sticky top-0 z-10 border-b-4 border-amber-500 bg-indigo-950 shadow-md">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:py-4">
         <Link href="/appointments" className="shrink-0">
           <Image
