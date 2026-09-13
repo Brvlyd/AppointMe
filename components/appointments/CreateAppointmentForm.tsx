@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,16 +24,33 @@ type User = { id: string; name: string; username: string; preferredTimezone: str
 export function CreateAppointmentForm({
   currentUser,
   invitableUsers,
+  mode = "create",
+  appointmentId,
+  initialValues,
+  backHref,
 }: {
   currentUser: User;
   invitableUsers: User[];
+  /** "edit" PATCHes an existing appointment instead of POSTing a new one. */
+  mode?: "create" | "edit";
+  appointmentId?: string;
+  initialValues?: {
+    title: string;
+    description: string;
+    start: string;
+    end: string;
+    participantIds: string[];
+  };
+  backHref: string;
 }) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [description, setDescription] = useState(initialValues?.description ?? "");
+  const [start, setStart] = useState(initialValues?.start ?? "");
+  const [end, setEnd] = useState(initialValues?.end ?? "");
+  const [participantIds, setParticipantIds] = useState<string[]>(
+    initialValues?.participantIds ?? []
+  );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -140,19 +158,21 @@ export function CreateAppointmentForm({
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/appointments", {
-        method: "POST",
+      const url = mode === "edit" ? `/api/appointments/${appointmentId}` : "/api/appointments";
+      const res = await fetch(url, {
+        method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setFormError(body?.error ?? "Could not create the appointment");
+        setFormError(body?.error ?? `Could not ${mode === "edit" ? "update" : "create"} the appointment`);
         return;
       }
 
-      router.push("/appointments");
+      router.push(mode === "edit" ? `/appointments/${appointmentId}` : "/appointments");
+      router.refresh();
     } finally {
       setSubmitting(false);
     }
@@ -292,18 +312,29 @@ export function CreateAppointmentForm({
 
       {formError && (
         <Alert variant="destructive">
-          <AlertTitle>Could not create appointment</AlertTitle>
+          <AlertTitle>Could not {mode === "edit" ? "update" : "create"} appointment</AlertTitle>
           <AlertDescription>{formError}</AlertDescription>
         </Alert>
       )}
 
-      <Button
-        type="submit"
-        disabled={submitting}
-        className="w-fit bg-amber-500 text-white hover:bg-amber-600"
-      >
-        {submitting ? "Creating..." : "Create appointment"}
-      </Button>
+      <div className="flex gap-3">
+        <Button
+          type="submit"
+          disabled={submitting}
+          className="w-fit bg-amber-500 text-white hover:bg-amber-600"
+        >
+          {submitting
+            ? mode === "edit"
+              ? "Saving..."
+              : "Creating..."
+            : mode === "edit"
+              ? "Save changes"
+              : "Create appointment"}
+        </Button>
+        <Button type="button" variant="outline" render={<Link href={backHref} />} nativeButton={false}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }

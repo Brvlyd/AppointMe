@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/services/authService";
 import { listUsers } from "@/lib/services/userService";
@@ -17,8 +18,14 @@ export default async function NewAppointmentPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Link
+        href="/appointments"
+        className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        ← Back
+      </Link>
       <h1 className="font-heading text-xl font-semibold">New appointment</h1>
-      <CreateAppointmentForm currentUser={user} invitableUsers={invitableUsers} />
+      <CreateAppointmentForm currentUser={user} invitableUsers={invitableUsers} backHref="/appointments" />
     </div>
   );
 }
