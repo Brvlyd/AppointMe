@@ -21,6 +21,12 @@
 /docs
 /build
 
+# prisma - generated client. Never tracked, not even a placeholder .gitignore
+# inside it: a tracked file there makes the directory "non-empty" to Prisma's
+# own safety check on a fresh clone (before `prisma generate` ever ran),
+# and it refuses to generate into a non-empty dir it doesn't recognize.
+/lib/generated/
+
 # misc
 .DS_Store
 *.pem
