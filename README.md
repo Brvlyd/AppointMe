@@ -1,91 +1,155 @@
 # AppointMe!
 
-A timezone-aware appointment scheduling app. Users log in with just a username, set a
-preferred IANA timezone, create appointments, and invite other users — every time is
-converted and displayed in the viewer's own timezone, and an appointment can only be
-scheduled inside working hours (08:00–17:00) for every participant, creator included.
+Aplikasi penjadwalan janji temu (appointment) yang sadar zona waktu (timezone-aware). User
+login pakai username, atur zona waktu masing-masing, buat janji temu, dan undang user lain —
+setiap jam yang tampil otomatis disesuaikan ke zona waktu orang yang sedang login, dan sebuah
+janji temu hanya bisa dibuat kalau jamnya masih masuk jam kerja (08:00–17:00) untuk **semua**
+orang yang terlibat, termasuk pembuatnya sendiri.
 
-**Live demo:** [appoint-me-psi.vercel.app](https://appoint-me-psi.vercel.app/)
+**Demo online (tanpa perlu install apa pun):** [appoint-me-psi.vercel.app](https://appoint-me-psi.vercel.app/)
 
-**Video walkthrough:** [Google Drive](https://drive.google.com/file/d/1eFosK7GQtOc0F8MV6PggW1sGQ5L-pnv-/view?usp=sharing)
+**Video cara pakai:** [Google Drive](https://drive.google.com/file/d/1eFosK7GQtOc0F8MV6PggW1sGQ5L-pnv-/view?usp=sharing)
 
-## Screenshots
+> Kalau cuma mau **lihat/coba aplikasinya**, buka saja link demo di atas — tidak perlu install
+> apa pun di komputer. Panduan di bawah ini untuk yang mau menjalankan aplikasinya sendiri di
+> komputer lokal (misalnya untuk mengecek kodenya).
+
+## Screenshot
 
 | | |
 |---|---|
-| Login | Empty state |
-| ![Login](screenshots/01-login.png) | ![Empty appointments list](screenshots/02-appointments-empty.png) |
-| Appointments list | Appointment detail (creator view) |
-| ![Appointments list](screenshots/03-appointments-list.png) | ![Appointment detail](screenshots/04-appointment-detail.png) |
-| Edit appointment | Profile settings |
-| ![Edit appointment](screenshots/05-appointment-edit.png) | ![Profile settings](screenshots/06-profile.png) |
+| Halaman login | Kalau belum ada janji temu |
+| ![Login](screenshots/01-login.png) | ![Belum ada janji temu](screenshots/02-appointments-empty.png) |
+| Daftar janji temu | Detail janji temu (sebagai pembuat) |
+| ![Daftar janji temu](screenshots/03-appointments-list.png) | ![Detail janji temu](screenshots/04-appointment-detail.png) |
+| Edit janji temu | Pengaturan profil |
+| ![Edit janji temu](screenshots/05-appointment-edit.png) | ![Pengaturan profil](screenshots/06-profile.png) |
 
-## Tech stack
+---
 
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 16 (App Router), full-stack |
-| Language | TypeScript |
-| Database | PostgreSQL 17 (via Docker) |
-| ORM | Prisma 7.10.0 (`@prisma/adapter-pg` driver adapter) |
-| Timezone / datetime | Luxon |
-| Auth | JWT (minimal payload) in an httpOnly cookie |
-| Validation | Zod |
-| Styling | Tailwind CSS v4 + shadcn/ui |
-| Tests | Vitest |
+## Cara menjalankan di komputer sendiri (langkah demi langkah)
 
-Architecture is layered, one direction only: `app/api/*/route.ts` (controller, thin) →
-`lib/services/*` (business logic) → `lib/repositories/*` (Prisma queries) → `lib/db.ts`
-(the only file that touches Prisma directly).
+Panduan ini ditulis dengan asumsi kamu **belum pernah** menjalankan project seperti ini
+sebelumnya. Ikuti urutannya dari atas ke bawah, jangan ada yang dilompati.
 
-## Prerequisites
+### Yang perlu di-install dulu
 
-- **Node 22.23.2** — pinned via [Volta](https://volta.sh) (`package.json`'s `volta` field)
-  and via `.nvmrc` if you use nvm instead. With Volta installed, `cd` into the project and
-  the right Node version activates automatically.
-- **Docker Desktop** — runs Postgres locally, no native Postgres install needed.
+Cuma butuh 2 program, install dulu sebelum lanjut ke bagian "Langkah-langkah":
 
-## Setup (from a fresh clone)
+1. **Node.js** — ini yang menjalankan kodenya.
+   - Download dan install dari [nodejs.org](https://nodejs.org) (pilih versi **LTS**).
+   - Project ini sebenarnya sudah "mengunci" versi Node yang dipakai (lewat file `.nvmrc` dan
+     `package.json`) supaya semua orang pakai versi yang sama persis (**22.23.2**). Kalau kamu
+     pakai [Volta](https://volta.sh) untuk mengelola versi Node, ini otomatis — tinggal masuk
+     ke folder project-nya dan versi yang benar langsung aktif sendiri. Kalau tidak pakai
+     Volta, versi Node LTS biasa juga aman dipakai.
+2. **Docker Desktop** — ini yang menjalankan database (PostgreSQL) tanpa perlu install
+   PostgreSQL secara manual.
+   - Download dari [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/).
+   - Setelah install, **buka aplikasi Docker Desktop-nya dan biarkan tetap terbuka/berjalan**
+     di background — semua perintah `docker` di bawah ini butuh Docker Desktop aktif, kalau
+     tidak akan muncul pesan error.
+
+Kamu juga butuh **Terminal** (di Windows namanya "Command Prompt" atau "PowerShell", di
+Mac/Linux namanya "Terminal") untuk mengetik perintah-perintah di bawah. Buka terminal, lalu
+pindah ke folder tempat project ini disimpan (perintah `cd nama-folder`).
+
+### Langkah-langkah
+
+**1. Siapkan file konfigurasi (`.env`)**
+
+Project ini butuh file bernama `.env` yang isinya rahasia/konfigurasi khusus komputer kamu
+(alamat database, kunci keamanan). File contohnya sudah disediakan, tinggal disalin:
 
 ```bash
-# 1. Copy the example env file first - `npm install`'s postinstall hook runs
-#    `prisma generate`, which needs DATABASE_URL to be *set* (not necessarily
-#    reachable yet) just to load its config. Doing this after `npm install`
-#    makes the install itself fail.
 cp .env.example .env
-# then edit .env and replace JWT_SECRET with your own value, e.g.:
+```
+
+Lalu buka file `.env` yang baru dibuat itu pakai text editor apa saja (Notepad juga boleh), dan
+ganti nilai `JWT_SECRET` (yang isinya masih placeholder `replace-with-a-generated-random-secret`)
+dengan kode acak. Cara paling gampang, jalankan perintah ini di terminal, lalu copy hasilnya ke
+`.env`:
+
+```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
 
-# 2. Install dependencies (this also runs `prisma generate` via postinstall)
+> **Kenapa harus urutan ini dulu (bukan langsung `npm install`)?** Karena nanti di langkah 2,
+> `npm install` otomatis menyiapkan koneksi ke database, dan itu butuh file `.env` ini sudah
+> ada duluan — walau isinya belum tersambung ke database yang benar-benar hidup, filenya harus
+> sudah ada.
+
+**2. Install semua "bahan" yang dibutuhkan aplikasi**
+
+```bash
 npm install
+```
 
-# 3. Start Postgres in Docker
+Proses ini akan download banyak file pendukung (bisa makan waktu beberapa menit tergantung
+koneksi internet) — tunggu saja sampai selesai. Kalau di akhir muncul tulisan
+`added ### packages`, berarti berhasil.
+
+**3. Nyalakan database (lewat Docker)**
+
+```bash
 docker compose up -d
-docker compose ps   # wait until appointme-db shows "healthy"
+```
 
-# 4. Apply the database schema
+Lalu cek apakah database-nya sudah benar-benar siap:
+
+```bash
+docker compose ps
+```
+
+Tunggu sampai kolom **STATUS** menunjukkan tulisan **healthy** (biasanya kurang dari 30 detik).
+Kalau masih `starting`, jalankan lagi perintah `docker compose ps` beberapa detik kemudian.
+
+**4. Siapkan struktur tabel di database**
+
+```bash
 npx prisma migrate deploy
+```
 
-# 5. Seed sample data (5 users across 4 timezones, 2 sample appointments)
+**5. Isi database dengan data contoh** (5 akun user contoh + 2 janji temu contoh, supaya
+aplikasinya tidak kosong melompong saat pertama dibuka)
+
+```bash
 npx prisma db seed
+```
 
-# 6. Run the app
+**6. Jalankan aplikasinya**
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — you'll be redirected to `/login`.
+Tunggu sampai muncul tulisan semacam `Ready in ... ms`, lalu buka browser dan kunjungi:
 
-**Note on ports:** Postgres runs on host port **5433**, not the default 5432 — this avoids
-clashing with a native Postgres install some machines already have running on 5432. If
-`docker compose up` fails to bind, something else on your machine is already using 5433;
-change the left side of the `"5433:5432"` mapping in `docker-compose.yml` and update
-`DATABASE_URL` in `.env` to match.
+**http://localhost:3000**
 
-## Test login accounts (seeded)
+Kamu akan otomatis diarahkan ke halaman login.
 
-Login is username-only, no password. Use any of:
+### Kalau ada yang error / macet
 
-| Username | Timezone |
+- **`docker compose up` gagal / error soal port** — kemungkinan besar port `5433` di
+  komputer kamu sudah dipakai program lain. Buka `docker-compose.yml`, ubah angka `5433` di
+  bagian `"5433:5432"` jadi angka lain (misalnya `"5434:5432"`), lalu ubah juga angka yang sama
+  di `DATABASE_URL` pada file `.env` supaya keduanya cocok.
+- **Muncul error soal `DATABASE_URL` atau koneksi database saat `npm install` atau
+  `npx prisma ...`** — cek lagi urutan langkahnya: file `.env` harus sudah ada (langkah 1)
+  *sebelum* `npm install`, dan Docker Desktop harus sudah berjalan *sebelum* `docker compose up`.
+- **Halaman muncul tapi kosong / error di browser** — coba tutup terminalnya (`Ctrl+C`), lalu
+  jalankan ulang `npm run dev`.
+- **Docker Desktop belum kebuka** — buka aplikasi Docker Desktop-nya dulu secara manual dari
+  Start Menu / Applications, tunggu sampai ikonnya menunjukkan status berjalan, baru ulangi
+  langkah 3.
+
+## Akun untuk login (sudah tersedia dari langkah "isi database")
+
+Login di aplikasi ini **cukup pakai username saja, tanpa password**. Pakai salah satu username
+berikut untuk mencoba:
+
+| Username | Zona waktu |
 |---|---|
 | `dewi` | Asia/Jakarta |
 | `liam` | Pacific/Auckland |
@@ -93,63 +157,91 @@ Login is username-only, no password. Use any of:
 | `sarah` | America/New_York |
 | `bravely` | Asia/Jakarta |
 
-There is no self-registration — the brief's login form has no field for name/timezone, so
-an unrecognized username is rejected (`401`) rather than auto-creating an account.
+Tidak ada fitur daftar akun baru sendiri (self-registration) — sesuai brief, form login hanya
+punya kolom username, tidak ada tempat mengisi nama/zona waktu untuk akun baru. Kalau username
+yang dimasukkan tidak ada di daftar di atas, login akan ditolak.
 
-## Environment variables
+---
 
-| Variable | Description |
+## Untuk yang lebih familiar dengan development
+
+### Tech stack
+
+| Layer | Pilihan |
 |---|---|
-| `DATABASE_URL` | Postgres connection string. Matches `docker-compose.yml`'s credentials and the `5433` host port by default. |
-| `JWT_SECRET` | Secret used to sign/verify session JWTs. Generate your own (see setup step 2) — never reuse the placeholder in `.env.example`. |
+| Framework | Next.js 16 (App Router), full-stack |
+| Bahasa | TypeScript |
+| Database | PostgreSQL 17 (lewat Docker) |
+| ORM | Prisma 7.10.0 (driver adapter `@prisma/adapter-pg`) |
+| Timezone / datetime | Luxon |
+| Auth | JWT (payload minimal) di httpOnly cookie |
+| Validasi | Zod |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| Testing | Vitest |
 
-## Running tests
+Arsitekturnya berlapis, satu arah saja: `app/api/*/route.ts` (controller, tipis) →
+`lib/services/*` (business logic) → `lib/repositories/*` (query Prisma) → `lib/db.ts`
+(satu-satunya file yang langsung menyentuh Prisma).
+
+### Environment variables
+
+| Variabel | Keterangan |
+|---|---|
+| `DATABASE_URL` | Connection string ke Postgres. Harus cocok dengan kredensial di `docker-compose.yml` dan port `5433`-nya. |
+| `JWT_SECRET` | Secret untuk sign/verify JWT sesi login. Buat sendiri (lihat langkah 1 di atas) — jangan pernah pakai nilai placeholder di `.env.example` untuk hal yang serius. |
+
+**Catatan soal port:** Postgres jalan di port host **5433**, bukan default 5432 — ini supaya
+tidak bentrok dengan Postgres native yang mungkin sudah terpasang di sebagian komputer pada
+port 5432.
+
+### Menjalankan test
 
 ```bash
 npm test
 ```
 
-Covers `lib/time.ts` (the timezone/working-hours logic) — wall-clock↔UTC conversion, DST
-spring-forward/fall-back behavior, working-hours validation across zones, and the
-documented correction to the brief's own Jakarta↔Auckland "non-overlap" example (see
-`docs/ASSIGNMENT.md` section 5 and `docs/PROGRESS.md` for that finding).
+Meng-cover `lib/time.ts` (logika timezone/jam kerja) — konversi wall-clock↔UTC, perilaku DST
+saat maju/mundur jam, validasi jam kerja lintas zona, dan koreksi terdokumentasi atas contoh
+"Jakarta↔Auckland tidak overlap" dari brief (lihat `docs/ASSIGNMENT.md` bagian 5 dan
+`docs/PROGRESS.md` untuk detail temuannya).
 
-## Building for production
+### Build untuk production
 
 ```bash
 npm run build
 npm start
 ```
 
-## Project structure
+### Struktur project
 
 ```
 app/
-  api/                  API route handlers (thin controllers)
-  (protected)/           Route group: shared auth-checking layout + navbar
-    appointments/        List + create pages
-    profile/              Name/timezone settings
-  login/                Public login page
+  api/                  Route handler API (controller tipis)
+  (protected)/           Route group: layout dengan pengecekan login + navbar
+    appointments/        Halaman daftar + buat + edit + detail janji temu
+    profile/              Pengaturan nama/timezone
+  login/                Halaman login (publik)
 lib/
   services/             Business logic
-  repositories/         Prisma queries only
-  validators/           Zod schemas
-  time.ts               Pure timezone/working-hours logic (server + client)
-  db.ts                 PrismaClient singleton (only file that imports Prisma)
-components/             UI components (shadcn primitives in components/ui/)
+  repositories/         Query Prisma saja
+  validators/           Skema Zod
+  time.ts               Logika timezone/jam kerja murni (dipakai server maupun client)
+  db.ts                 Singleton PrismaClient (satu-satunya file yang import Prisma)
+components/             Komponen UI (primitif shadcn di components/ui/)
 prisma/                 schema.prisma, migrations, seed.ts
-docs/                   Working notes: ASSIGNMENT.md, PROGRESS.md (phase-by-phase log)
+docs/                   Catatan kerja internal: ASSIGNMENT.md, PROGRESS.md (log per fase)
+screenshots/            Gambar-gambar untuk README ini
 ```
 
-## Documented assumptions
+### Asumsi yang didokumentasikan
 
-- **Working hours: 08:00–17:00.** The brief states two different numbers (09:00 in one
-  section, 08:00 in another); 08:00 was chosen as the more specific, implementation-level
-  value. See `docs/ASSIGNMENT.md` section 5.
-- **An appointment cannot span more than one calendar day** in any participant's local
-  timezone (rejected as a validation error, not silently truncated).
-- **Timezones are IANA zone names**, never raw UTC offsets, specifically because offsets
-  break across DST transitions.
+- **Jam kerja: 08:00–17:00.** Brief menyebut dua angka berbeda (09:00 di satu bagian, 08:00 di
+  bagian lain); 08:00 dipilih karena lebih spesifik dan terlihat seperti nilai level-implementasi.
+  Lihat `docs/ASSIGNMENT.md` bagian 5.
+- **Sebuah janji temu tidak boleh melewati lebih dari satu hari kalender** di zona waktu
+  siapa pun yang terlibat (ditolak sebagai error validasi, bukan dipotong diam-diam).
+- **Zona waktu memakai nama zona IANA**, bukan offset UTC mentah, karena offset akan rusak
+  begitu terjadi perubahan DST (musim panas/dingin).
 
-See `answers.md` for the full reasoning behind the timezone conflict handling, database
-indexing choices, and session design.
+Lihat `answers.md` untuk penjelasan lengkap soal penanganan konflik timezone, pilihan indexing
+database, dan desain sesi login.
