@@ -86,8 +86,12 @@ export function validateAppointmentWindow(
   }
 
   const violations: AppointmentViolation[] = [];
+  // Two different people (e.g. the creator and an invitee) can share a zone -
+  // check each unique zone once, not once per person, or the same violation
+  // gets pushed twice with an identical message.
+  const uniqueZones = [...new Set(participantZones)];
 
-  for (const zone of participantZones) {
+  for (const zone of uniqueZones) {
     const localStart = DateTime.fromJSDate(utcStart, { zone: "utc" }).setZone(zone);
     const localEnd = DateTime.fromJSDate(utcEnd, { zone: "utc" }).setZone(zone);
     const localStartLabel = formatInZone(utcStart, zone);

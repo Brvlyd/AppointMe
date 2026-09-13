@@ -183,7 +183,7 @@ export function CreateAppointmentForm({
           ) : (
             <div className="flex flex-col gap-2">
               {invitableUsers.map((u) => {
-                const zoneHasConflict = violations.some(
+                const zoneViolation = violations.find(
                   (v) => "zone" in v && v.zone === u.preferredTimezone
                 );
                 const isSelected = participantIds.includes(u.id);
@@ -202,9 +202,11 @@ export function CreateAppointmentForm({
                       {u.name}{" "}
                       <span className="text-muted-foreground">({u.preferredTimezone})</span>
                     </span>
-                    {isSelected && zoneHasConflict && (
+                    {isSelected && zoneViolation && (
                       <span className="text-xs font-medium text-destructive">
-                        Outside working hours
+                        {zoneViolation.reason === "crosses-midnight"
+                          ? "Crosses midnight"
+                          : "Outside working hours"}
                       </span>
                     )}
                   </label>

@@ -164,4 +164,14 @@ describe("validateAppointmentWindow", () => {
     expect(result.valid).toBe(false);
     expect(result.violations[0].reason).toBe("crosses-midnight");
   });
+
+  it("reports a shared zone once even when two different people (e.g. creator + invitee) are both in it", () => {
+    // Regression: the creator's own zone and an invitee's zone can be the
+    // same string ("Asia/Jakarta" twice here) - the violation must not be
+    // duplicated just because two people happen to share it.
+    const start = new Date("2026-10-05T22:45:00Z");
+    const end = new Date("2026-10-05T23:15:00Z");
+    const result = validateAppointmentWindow(start, end, ["Asia/Jakarta", "Asia/Jakarta"]);
+    expect(result.violations).toHaveLength(1);
+  });
 });
