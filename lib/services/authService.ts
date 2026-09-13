@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { signToken, verifyToken } from "@/lib/jwt";
 import { findById, findByUsername } from "@/lib/repositories/userRepository";
 
@@ -40,8 +41,12 @@ export async function logout() {
  * Returns null (never throws) for: no cookie, expired/tampered token, or a
  * token whose user id no longer exists in the database - callers should
  * treat all of these uniformly as "not authenticated".
+ *
+ * Wrapped in React's `cache()` so multiple calls within the same request
+ * (e.g. a layout checking auth, then a page reading user.id/preferredTimezone)
+ * dedupe into a single DB lookup instead of repeating it per caller.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) {
@@ -54,4 +59,4 @@ export async function getCurrentUser() {
   }
 
   return findById(payload.sub);
-}
+});
