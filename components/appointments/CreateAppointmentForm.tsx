@@ -49,8 +49,14 @@ export function CreateAppointmentForm({
   // Live conflict preview, reusing the exact same validation the server runs.
   // Only runs once both start and end are filled with something parseable -
   // otherwise a half-finished form flashes a misleading "end before start".
-  const violations = useMemo<AppointmentViolation[]>(() => {
-    if (!start || !end) return [];
+  // Keeps the parsed UTC instants alongside the violations so messages below
+  // can show the actual dates involved, not just an abstract reason code.
+  const { violations, utcStart, utcEnd } = useMemo<{
+    violations: AppointmentViolation[];
+    utcStart: Date | null;
+    utcEnd: Date | null;
+  }>(() => {
+    if (!start || !end) return { violations: [], utcStart: null, utcEnd: null };
     try {
       const utcStart = localWallTimeToUtc(start, currentUser.preferredTimezone);
       const utcEnd = localWallTimeToUtc(end, currentUser.preferredTimezone);
@@ -58,12 +64,18 @@ export function CreateAppointmentForm({
         currentUser.preferredTimezone,
         ...selectedParticipants.map((u) => u.preferredTimezone),
       ];
-      return validateAppointmentWindow(utcStart, utcEnd, zones).violations;
+      return {
+        violations: validateAppointmentWindow(utcStart, utcEnd, zones).violations,
+        utcStart,
+        utcEnd,
+      };
     } catch {
-      return [];
+      return { violations: [], utcStart: null, utcEnd: null };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [start, end, currentUser.preferredTimezone, participantIds]);
+
+  const hasTimeViolation = violations.length > 0;
 
   function participantsInZone(zone: string): string[] {
     const names: string[] = [];
@@ -72,6 +84,17 @@ export function CreateAppointmentForm({
       if (u.preferredTimezone === zone) names.push(u.name);
     }
     return names;
+  }
+
+  /** "Start (22 Oct 2026) and end (31 Oct 2026) fall on different days for X (zone)." */
+  function crossesMidnightMessage(zone: string): string {
+    const names = participantsInZone(zone).join(", ");
+    if (!utcStart || !utcEnd) {
+      return `Start and end fall on different days for ${names} (${zone}).`;
+    }
+    const startDate = DateTime.fromJSDate(utcStart, { zone: "utc" }).setZone(zone).toFormat("d MMM yyyy");
+    const endDate = DateTime.fromJSDate(utcEnd, { zone: "utc" }).setZone(zone).toFormat("d MMM yyyy");
+    return `Start (${startDate}) and end (${endDate}) fall on different days for ${names} (${zone}) - an appointment can't span more than one day.`;
   }
 
   function toggleParticipant(id: string, checked: boolean) {
@@ -148,7 +171,7 @@ export function CreateAppointmentForm({
                 onChange={(e) => setStart(e.target.value)}
                 min={minDateTime}
                 max={maxDateTime}
-                aria-invalid={fieldErrors.start ? true : undefined}
+                aria-invalid={fieldErrors.start || hasTimeViolation ? true : undefined}
               />
               {fieldErrors.start && (
                 <p className="text-sm text-destructive">{fieldErrors.start[0]}</p>
@@ -163,7 +186,7 @@ export function CreateAppointmentForm({
                 onChange={(e) => setEnd(e.target.value)}
                 min={minDateTime}
                 max={maxDateTime}
-                aria-invalid={fieldErrors.end ? true : undefined}
+                aria-invalid={fieldErrors.end || hasTimeViolation ? true : undefined}
               />
               {fieldErrors.end && <p className="text-sm text-destructive">{fieldErrors.end[0]}</p>}
             </div>
@@ -226,8 +249,7 @@ export function CreateAppointmentForm({
                 {v.reason === "start-in-the-past" && "The start time can't be in the past."}
                 {v.reason === "too-far-in-future" &&
                   `The start time is too far in the future (max ${MAX_ADVANCE_DAYS} days ahead) - double-check the date you entered.`}
-                {v.reason === "crosses-midnight" &&
-                  `Crosses midnight for ${participantsInZone(v.zone).join(", ")} (${v.zone}).`}
+                {v.reason === "crosses-midnight" && crossesMidnightMessage(v.zone)}
                 {v.reason === "outside-working-hours" &&
                   `Outside working hours (08:00-17:00) for ${participantsInZone(v.zone).join(", ")} (${v.zone}).`}
               </AlertDescription>
