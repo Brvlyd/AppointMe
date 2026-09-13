@@ -3,7 +3,13 @@ import { login } from "@/lib/services/authService";
 import { loginSchema } from "@/lib/validators/auth";
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
   const parsed = loginSchema.safeParse(body);
 
   if (!parsed.success) {

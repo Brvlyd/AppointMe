@@ -6,7 +6,7 @@ export const listAppointmentsQuerySchema = z.object({
 });
 
 export const createAppointmentSchema = z.object({
-  title: z.string().min(1, "title is required"),
+  title: z.string().trim().min(1, "title is required"),
   // Naive local wall-clock strings (e.g. "2026-10-05T14:00"), interpreted in
   // the creator's own preferredTimezone - not UTC, not the browser's zone.
   start: z.string().min(1, "start is required"),
