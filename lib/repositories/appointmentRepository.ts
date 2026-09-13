@@ -72,3 +72,39 @@ export function create(data: {
     include: appointmentInclude,
   });
 }
+
+export function findById(id: string) {
+  return db.appointment.findUnique({ where: { id }, include: appointmentInclude });
+}
+
+/** Replaces the participant list wholesale - simpler and safe here since the whole form is re-submitted on edit, not a partial patch of participants. */
+export async function update(
+  id: string,
+  data: {
+    title: string;
+    description?: string;
+    start: Date;
+    end: Date;
+    participantUserIds: string[];
+  }
+) {
+  await db.appointmentParticipant.deleteMany({ where: { appointmentId: id } });
+  return db.appointment.update({
+    where: { id },
+    data: {
+      title: data.title,
+      description: data.description,
+      start: data.start,
+      end: data.end,
+      participants: {
+        create: data.participantUserIds.map((userId) => ({ userId })),
+      },
+    },
+    include: appointmentInclude,
+  });
+}
+
+export async function remove(id: string) {
+  await db.appointmentParticipant.deleteMany({ where: { appointmentId: id } });
+  await db.appointment.delete({ where: { id } });
+}
