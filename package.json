@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/luxon": "^3.7.5",
     "@types/node": "^22.20.2",
     "@types/react": "^19",
