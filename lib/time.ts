@@ -24,8 +24,21 @@ export function localWallTimeToUtc(localIso: string, zone: string): Date {
  * and the IANA zone name in parentheses is what actually disambiguates.
  */
 export function formatInZone(utcInstant: Date, zone: string): string {
+  const { time, zoneLabel } = formatTimeParts(utcInstant, zone);
+  return `${time} ${zoneLabel}`;
+}
+
+/**
+ * Same rendering as `formatInZone`, but as separate pieces - for UI that
+ * needs to style the time and the zone label differently (e.g. a large bold
+ * time with a smaller label underneath) instead of one combined string.
+ */
+export function formatTimeParts(utcInstant: Date, zone: string): { time: string; zoneLabel: string } {
   const dt = DateTime.fromJSDate(utcInstant, { zone: "utc" }).setZone(zone);
-  return `${dt.toFormat("HH:mm")} GMT${dt.toFormat("ZZ")} (${zone})`;
+  return {
+    time: dt.toFormat("HH:mm"),
+    zoneLabel: `GMT${dt.toFormat("ZZ")} (${zone})`,
+  };
 }
 
 /** Whether the instant's local time-of-day in `zone` falls within WORKING_HOURS. */

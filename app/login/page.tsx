@@ -61,7 +61,7 @@ export default function LoginPage() {
           <Image
             src="/brand/logo/appointme-dark.png"
             alt="AppointMe!"
-            width={180}
+            width={194}
             height={44}
             priority
           />
