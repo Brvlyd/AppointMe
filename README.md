@@ -11,8 +11,12 @@ orang yang terlibat, termasuk pembuatnya sendiri.
 **Video cara pakai:** [Google Drive](https://drive.google.com/file/d/1eFosK7GQtOc0F8MV6PggW1sGQ5L-pnv-/view?usp=sharing)
 
 > Kalau cuma mau **lihat/coba aplikasinya**, buka saja link demo di atas — tidak perlu install
-> apa pun di komputer. Panduan di bawah ini untuk yang mau menjalankan aplikasinya sendiri di
-> komputer lokal (misalnya untuk mengecek kodenya).
+> apa pun di komputer. Login-nya pakai username yang sama seperti di tabel "Akun untuk login"
+> di bawah (`dewi`, `liam`, `oliver`, `sarah`, `bravely`). Database yang dipakai versi online
+> ini **terpisah** dari database Docker yang dipakai untuk development di komputer lokal (lihat
+> bagian "Deployment" di bawah) — jadi data yang kamu buat di versi online tidak akan muncul di
+> versi lokal, begitu juga sebaliknya. Panduan di bawah ini untuk yang mau menjalankan
+> aplikasinya sendiri di komputer lokal (misalnya untuk mengecek kodenya).
 
 ## Screenshot
 
@@ -171,7 +175,7 @@ yang dimasukkan tidak ada di daftar di atas, login akan ditolak.
 |---|---|
 | Framework | Next.js 16 (App Router), full-stack |
 | Bahasa | TypeScript |
-| Database | PostgreSQL 17 (lewat Docker) |
+| Database | PostgreSQL 17 — Docker untuk development, [Neon](https://neon.tech) untuk production |
 | ORM | Prisma 7.10.0 (driver adapter `@prisma/adapter-pg`) |
 | Timezone / datetime | Luxon |
 | Auth | JWT (payload minimal) di httpOnly cookie |
@@ -187,8 +191,8 @@ Arsitekturnya berlapis, satu arah saja: `app/api/*/route.ts` (controller, tipis)
 
 | Variabel | Keterangan |
 |---|---|
-| `DATABASE_URL` | Connection string ke Postgres. Harus cocok dengan kredensial di `docker-compose.yml` dan port `5433`-nya. |
-| `JWT_SECRET` | Secret untuk sign/verify JWT sesi login. Buat sendiri (lihat langkah 1 di atas) — jangan pernah pakai nilai placeholder di `.env.example` untuk hal yang serius. |
+| `DATABASE_URL` | Connection string ke Postgres. Untuk development lokal, harus cocok dengan kredensial di `docker-compose.yml` dan port `5433`-nya. Untuk production (Vercel), ini mengarah ke database Neon — lihat bagian "Deployment" di bawah. |
+| `JWT_SECRET` | Secret untuk sign/verify JWT sesi login. Buat sendiri (lihat langkah 1 di atas) — jangan pernah pakai nilai placeholder di `.env.example` untuk hal yang serius, dan jangan pakai nilai yang sama antara development dan production. |
 
 **Catatan soal port:** Postgres jalan di port host **5433**, bukan default 5432 — ini supaya
 tidak bentrok dengan Postgres native yang mungkin sudah terpasang di sebagian komputer pada
@@ -211,6 +215,47 @@ saat maju/mundur jam, validasi jam kerja lintas zona, dan koreksi terdokumentasi
 npm run build
 npm start
 ```
+
+### Deployment (Vercel + Neon)
+
+Versi online di [appoint-me-psi.vercel.app](https://appoint-me-psi.vercel.app/) di-deploy ke
+**Vercel**, dengan database production di **[Neon](https://neon.tech)** (Postgres serverless)
+yang disambungkan lewat integrasi Neon di tab **Storage** pada dashboard Vercel-nya.
+
+Kenapa harus database yang beda dari Docker? Karena Postgres via Docker di langkah setup lokal
+di atas cuma jalan di `localhost` komputer sendiri — server Vercel (yang letaknya di data center,
+bukan di laptop siapa pun) tidak bisa menjangkau `localhost` milik orang lain. Jadi production
+butuh Postgres yang benar-benar bisa diakses lewat internet; Neon dipilih karena terintegrasi
+langsung di dashboard Vercel (tinggal klik "Add", `DATABASE_URL`-nya otomatis terisi ke
+Environment Variables project, tanpa perlu pindah-pindah dashboard).
+
+Yang perlu diset di **Vercel → Settings → Environment Variables**:
+
+| Variabel | Isi |
+|---|---|
+| `DATABASE_URL` | Otomatis terisi oleh integrasi Neon (tidak perlu diketik manual). |
+| `JWT_SECRET` | Isi manual dengan secret **khusus production**, beda dari yang dipakai di `.env` lokal. |
+
+Setiap deploy otomatis menjalankan migration lewat script `vercel-build` di `package.json`:
+
+```json
+"vercel-build": "prisma migrate deploy && next build"
+```
+
+**Satu langkah manual yang tidak otomatis:** mengisi data contoh (seed) ke database Neon. Beda
+dengan migration, `npx prisma db seed` **tidak** dijalankan otomatis saat deploy — jadi begitu
+Neon baru pertama kali disambungkan, tabelnya sudah ada (dari migration) tapi masih kosong,
+belum ada satu pun akun untuk login. Untuk mengisinya, jalankan sekali secara manual dari
+komputer lokal dengan `DATABASE_URL` production (bukan yang di `.env`):
+
+```bash
+# ganti <connection-string-neon> dengan nilai DATABASE_URL dari Vercel/Neon
+DATABASE_URL="<connection-string-neon>" npx prisma db seed
+```
+
+⚠️ **Hati-hati:** `prisma db seed` menghapus semua data di tabel `User`/`Appointment` lebih dulu
+sebelum mengisi ulang datanya. Aman dijalankan saat database production masih kosong (belum ada
+user asli), tapi jangan dijalankan lagi setelah ada data sungguhan di sana.
 
 ### Struktur project
 
